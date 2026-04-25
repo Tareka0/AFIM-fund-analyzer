@@ -1,10 +1,10 @@
 # AFIM Fund Analyzer 📊
-**Al Ahly Fund Analyzer — Tarek Ahmed Portfolio Project 2025**
+
 
 ## Project Setup in 3 Steps
 
-# 1. Install Dependencies
-```bash
+### 1. Install Dependencies
+
 pip install flask requests
 
 ### 2. Run the Server
