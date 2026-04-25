@@ -20,13 +20,15 @@ Click "New Token" → Select "Read" type → Copy the Token (starts with hf_)
 Paste it into the "HuggingFace Token" field on the AI Analysis page.
 
 Completely free, no banking card needed.
+
+Sources
+Fund Data: AFIM Public Investment
+
+AI Model: Google Gemini 1.5 Flash (Free Tier)
 Project Structure
+```bash
 afim_analyzer/
 ├── app.py              ← Flask backend + metrics calculations
 ├── requirements.txt    ← Required libraries
 └── templates/
     └── index.html      ← Full frontend
-Sources
-Fund Data: AFIM Public Investment
-
-AI Model: Google Gemini 1.5 Flash (Free Tier)
