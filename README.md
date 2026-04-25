@@ -3,7 +3,7 @@
 
 ## Project Setup in 3 Steps
 
-### 1. Install Dependencies
+# 1. Install Dependencies
 ```bash
 pip install flask requests
 
