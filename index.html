@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>محلل صناديق الأهلي — AFIM Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #060E1A;
+    --bg2:       #0A1628;
+    --bg3:       #0F2240;
+    --border:    #1A3A5C;
+    --teal:      #1A7A8A;
+    --navy:      #1B3A5C;
+    --text:      #E8EDF2;
+    --muted:     #5A8FA8;
+    --green:     #2ECC71;
+    --red:       #E74C3C;
+    --orange:    #E67E22;
+    --purple:    #8E44AD;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans Arabic', 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    direction: rtl;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, #0A1628 0%, #0F2240 60%, #0A1628 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--navy), var(--teal));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .logo h1 { font-size: 18px; font-weight: 700; }
+  .logo p  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .tabs { display: flex; gap: 8px; }
+  .tab {
+    padding: 8px 18px; border-radius: 8px; border: none;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.05); color: var(--muted);
+    transition: all .2s; font-family: inherit;
+  }
+  .tab.active {
+    background: linear-gradient(135deg, var(--navy), var(--teal));
+    color: #fff;
+  }
+  .tab:hover:not(.active) { background: rgba(255,255,255,0.1); color: var(--text); }
+
+  /* ── MAIN ── */
+  main { padding: 24px 32px; }
+
+  /* ── FUND SELECTOR CARDS ── */
+  .fund-grid {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px;
+  }
+  .fund-card {
+    cursor: pointer; padding: 12px 16px; border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.02);
+    transition: all .2s; min-width: 145px;
+    user-select: none;
+  }
+  .fund-card.active  { border-color: var(--fund-color); background: color-mix(in srgb, var(--fund-color) 12%, transparent); }
+  .fund-card:hover   { border-color: rgba(255,255,255,0.2); }
+  .fund-card .badge  {
+    display: inline-block; padding: 1px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 600; margin-bottom: 4px;
+  }
+  .fund-card .fname  { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .fund-card.active .fname { color: var(--text); }
+  .fund-card .fnav   { font-size: 16px; font-weight: 700; margin-top: 3px; }
+  .fund-card .fytd   { font-size: 11px; margin-top: 2px; }
+
+  /* ── METRICS GRID ── */
+  .metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .metric-card {
+    border-radius: 14px; padding: 18px 20px;
+    border: 1px solid var(--fund-color, var(--border));
+    background: color-mix(in srgb, var(--fund-color, var(--navy)) 8%, transparent);
+  }
+  .metric-card h3 { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  .metric-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi { background: rgba(0,0,0,0.35); border-radius: 8px; padding: 8px 10px; }
+  .kpi-label { font-size: 9px; color: var(--muted); margin-bottom: 2px; }
+  .kpi-value { font-size: 14px; font-weight: 700; }
+
+  /* ── CHART PANEL ── */
+  .panel {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 26px; margin-bottom: 20px;
+  }
+  .panel h2 { font-size: 14px; color: #8ECAE6; margin-bottom: 16px; font-weight: 600; }
+  .panel-note { font-size: 10px; color: #2A4A6C; text-align: center; margin-top: 10px; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { border-bottom: 2px solid var(--border); }
+  th { padding: 9px 12px; color: var(--muted); font-weight: 600; text-align: right; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid #0F2240; }
+  tbody tr:nth-child(odd) { background: rgba(26,58,92,0.12); }
+  td { padding: 10px 12px; white-space: nowrap; }
+
+  /* ── TABS PANELS ── */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── AI CHAT ── */
+  .ai-info {
+    background: linear-gradient(135deg, rgba(27,58,92,.2), rgba(26,122,138,.1));
+    border: 1px solid rgba(26,122,138,.35); border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 16px; font-size: 13px;
+    color: #8ECAE6; line-height: 1.6;
+  }
+  .suggestions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .sug-btn {
+    padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border);
+    background: rgba(26,58,92,.25); color: #7ABCD4;
+    cursor: pointer; font-size: 11px; font-family: inherit; transition: all .2s;
+  }
+  .sug-btn:hover { background: rgba(26,122,138,.25); color: var(--text); }
+
+  .api-key-row {
+    display: flex; gap: 10px; margin-bottom: 14px; align-items: center;
+  }
+  .api-key-row label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .api-key-row input {
+    flex: 1; padding: 9px 14px; border-radius: 8px;
+    background: var(--bg2); border: 1px solid var(--border);
+    color: var(--text); font-size: 12px; outline: none; direction: ltr;
+  }
+  .api-key-row input:focus { border-color: var(--teal); }
+
+  .chatbox {
+    background: #080F1A; border: 1px solid var(--border);
+    border-radius: 14px; min-height: 300px; max-height: 420px;
+    overflow-y: auto; padding: 16px; margin-bottom: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .chat-empty {
+    text-align: center; color: #2A4A6C; padding: 80px 20px;
+    font-size: 14px;
+  }
+  .msg { display: flex; }
+  .msg.user   { justify-content: flex-start; }
+  .msg.assistant { justify-content: flex-end; }
+  .bubble {
+    max-width: 80%; padding: 11px 16px; border-radius: 12px;
+    font-size: 13px; line-height: 1.75; white-space: pre-wrap;
+  }
+  .msg.user .bubble {
+    background: #0F2240; border: 1px solid var(--border); color: #8ECAE6;
+  }
+  .msg.assistant .bubble {
+    background: linear-gradient(135deg, #1B3A5C, #1A4A6A);
+    border: 1px solid rgba(26,122,138,.4); color: var(--text);
+  }
+  .thinking .bubble { opacity: .6; }
+
+  .chat-input-row { display: flex; gap: 10px; }
+  .chat-input-row input {
+    flex: 1; padding: 12px 16px; border-radius: 10px;
+    background: var(--bg2); border: 1px solid var(--border);
+    color: var(--text); font-size: 13px; outline: none;
+    font-family: inherit; direction: rtl;
+  }
+  .chat-input-row input:focus { border-color: var(--teal); }
+  .send-btn {
+    padding: 12px 24px; border-radius: 10px; border: none;
+    background: linear-gradient(135deg, var(--navy), var(--teal));
+    color: #fff; cursor: pointer; font-weight: 700;
+    font-size: 14px; font-family: inherit; transition: all .2s;
+  }
+  .send-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .send-btn:hover:not(:disabled) { filter: brightness(1.15); }
+
+  footer {
+    border-top: 1px solid var(--border); padding: 16px 32px;
+    text-align: center; font-size: 11px; color: #2A4A6C;
+  }
+  footer a { color: var(--teal); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <div>
+      <h1>محلل صناديق الأهلي</h1>
+      <p>AFIM Fund Performance Analyzer • البيانات من afim.com.eg</p>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('overview')">📈 نظرة عامة</button>
+    <button class="tab" onclick="showTab('compare')">⚖️ مقارنة</button>
+    <button class="tab" onclick="showTab('ai')">🤖 تحليل AI</button>
+  </div>
+</header>
+
+<main>
+  <!-- Fund Selector -->
+  <div class="fund-grid" id="fundGrid"></div>
+
+  <!-- Overview Tab -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="metrics-row" id="metricsRow"></div>
+    <div class="panel">
+      <h2>📈 أداء الصناديق المختارة — مُعادل (Base = 100) · يناير 2024 – مارس 2025</h2>
+      <canvas id="navChart" height="100"></canvas>
+      <p class="panel-note">المصدر: afim.com.eg • التسعير الأسبوعي • معادل على أساس 100 للمقارنة العادلة</p>
+    </div>
+  </div>
+
+  <!-- Compare Tab -->
+  <div class="tab-panel" id="tab-compare">
+    <div class="panel">
+      <h2>⚖️ مقارنة العائد YTD والتذبذب — جميع الصناديق</h2>
+      <canvas id="barChart" height="90"></canvas>
+    </div>
+    <div class="panel">
+      <h2>📋 جدول مقارنة شامل — مرتب حسب العائد</h2>
+      <div class="table-wrap">
+        <table id="compareTable">
+          <thead>
+            <tr>
+              <th>الصندوق</th><th>النوع</th><th>NAV الحالي</th>
+              <th>العائد YTD</th><th>التذبذب</th><th>Sharpe</th>
+              <th>Max Drawdown</th><th>إجمالي العائد</th>
+            </tr>
+          </thead>
+          <tbody id="compareBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Tab -->
+  <div class="tab-panel" id="tab-ai">
+    <div class="ai-info">
+      🤖 <strong>محلل الصناديق بالذكاء الاصطناعي — مجاني 100% بدون بطاقة بنكية</strong><br>
+      يعمل بـ <strong>Hugging Face Inference API</strong> — مجاني تماماً.<br>
+      احصل على Token مجاني في 30 ثانية: <a href="https://huggingface.co/settings/tokens" target="_blank" style="color:#4FC3F7">huggingface.co/settings/tokens</a>
+      ← اضغط "New Token" ← اختار "Read" ← انسخ الـ Token.
+    </div>
+
+    <div class="api-key-row">
+      <label>🔑 HuggingFace Token:</label>
+      <input type="password" id="apiKeyInput" placeholder="hf_..." />
+    </div>
+
+    <div class="suggestions">
+      <button class="sug-btn" onclick="setQ('ما هو أفضل صندوق من حيث العائد المعدل بالمخاطر؟')">أفضل صندوق معدل بالمخاطر؟</button>
+      <button class="sug-btn" onclick="setQ('قارن صندوق الأسهم مع صندوق النقدي')">مقارنة أسهم vs نقدي</button>
+      <button class="sug-btn" onclick="setQ('ما هو Sharpe Ratio وكيف نفسره هنا؟')">شرح Sharpe Ratio</button>
+      <button class="sug-btn" onclick="setQ('Which fund has the best risk-adjusted return?')">Best risk-adjusted fund?</button>
+      <button class="sug-btn" onclick="setQ('لو عندي 100,000 جنيه، كيف أوزعهم على الصناديق؟')">توزيع استثمار 100K جنيه</button>
+    </div>
+
+    <div class="chatbox" id="chatbox">
+      <div class="chat-empty" id="chatEmpty">ابدأ المحادثة بسؤال عن الصناديق...</div>
+    </div>
+
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" placeholder="اسأل عن أداء الصناديق، المقارنة، المخاطر..." onkeydown="if(event.key==='Enter') sendMessage()" />
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">تحليل ▶</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  📌 البيانات مصدرها: <a href="https://www.afim.com.eg/public/investment" target="_blank">afim.com.eg</a> •
+  بنيت بـ Python (Flask) + HTML + Chart.js + HuggingFace Inference API (مجاني) •
+  Tarek Ahmed — Data Analyst Portfolio Project 2025
+</footer>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let FUNDS = [];
+let selectedIds = [];
+let navChart = null;
+let barChart = null;
+let chatHistory = [];
+
+const TYPE_COLORS = {
+  'أسهم': '#1B3A5C', 'إسلامي': '#27AE60',
+  'نقدي': '#8E44AD', 'متوازن': '#E67E22'
+};
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+async function init() {
+  const res = await fetch('/api/funds');
+  FUNDS = await res.json();
+  selectedIds = [FUNDS[0].id, FUNDS[1].id, FUNDS[3].id]; // fund2, fund3, bashaer
+  renderFundGrid();
+  renderMetrics();
+  renderNavChart();
+  renderCompare();
+}
+
+// ── Tab switcher ──────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Fund Grid ─────────────────────────────────────────────────────────────────
+function renderFundGrid() {
+  const grid = document.getElementById('fundGrid');
+  grid.innerHTML = FUNDS.map(f => {
+    const sel = selectedIds.includes(f.id);
+    const m = f.metrics;
+    const up = m.ytdReturn >= 0;
+    return `
+    <div class="fund-card ${sel ? 'active' : ''}" 
+         style="--fund-color: ${f.color}" 
+         onclick="toggleFund('${f.id}')">
+      <span class="badge" style="background:${TYPE_COLORS[f.type]}33;color:${TYPE_COLORS[f.type]}">${f.type}</span>
+      <div class="fname">${f.nameEn.split('–')[0].trim()}</div>
+      <div class="fnav" style="color:${sel ? f.color : 'var(--muted)'}">${f.currentNav.toFixed(1)} جنيه</div>
+      <div class="fytd" style="color:${up ? 'var(--green)' : 'var(--red)'}">
+        ${up ? '▲' : '▼'} ${Math.abs(m.ytdReturn)}% YTD
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleFund(id) {
+  if (selectedIds.includes(id)) {
+    if (selectedIds.length > 1) selectedIds = selectedIds.filter(x => x !== id);
+  } else {
+    selectedIds.push(id);
+  }
+  renderFundGrid();
+  renderMetrics();
+  renderNavChart();
+}
+
+// ── Metrics ───────────────────────────────────────────────────────────────────
+function renderMetrics() {
+  const row = document.getElementById('metricsRow');
+  const visible = FUNDS.filter(f => selectedIds.includes(f.id));
+  row.innerHTML = visible.map(f => {
+    const m = f.metrics;
+    return `
+    <div class="metric-card" style="--fund-color:${f.color}">
+      <h3>${f.nameEn}</h3>
+      <div class="metric-kpis">
+        ${kpi('NAV الحالي',       `${f.currentNav} جنيه`,     f.color)}
+        ${kpi('العائد YTD',       `${m.ytdReturn}%`,           m.ytdReturn >= 0 ? 'var(--green)' : 'var(--red)')}
+        ${kpi('التذبذب',          `${m.volatility}%`,          'var(--orange)')}
+        ${kpi('Sharpe Ratio',     m.sharpe,                    m.sharpe >= 0 ? 'var(--green)' : 'var(--red)')}
+        ${kpi('Max Drawdown',    `-${m.maxDrawdown}%`,         'var(--red)')}
+        ${kpi('إجمالي العائد',    `${m.totalReturn}%`,          'var(--purple)')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function kpi(label, value, color) {
+  return `<div class="kpi">
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value" style="color:${color}">${value}</div>
+  </div>`;
+}
+
+// ── NAV Chart ─────────────────────────────────────────────────────────────────
+function renderNavChart() {
+  const visible = FUNDS.filter(f => selectedIds.includes(f.id));
+  const labels = FUNDS[0].navHistory.map(p => p.date);
+
+  const datasets = visible.map(f => {
+    const base = f.navHistory[0].nav;
+    return {
+      label: f.nameEn.split('–')[0].trim(),
+      data: f.navHistory.map(p => parseFloat((p.nav / base * 100).toFixed(2))),
+      borderColor: f.color,
+      backgroundColor: f.color + '22',
+      borderWidth: 2.5,
+      pointRadius: 0,
+      tension: 0.35,
+      fill: false,
+    };
+  });
+
+  if (navChart) navChart.destroy();
+  const ctx = document.getElementById('navChart').getContext('2d');
+  navChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#8ECAE6', font: { size: 12 } } },
+        tooltip: {
+          backgroundColor: '#0F1C2E',
+          borderColor: '#1A7A8A',
+          borderWidth: 1,
+          titleColor: '#8ECAE6',
+          bodyColor: '#E8EDF2',
+          callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(2)}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#5A8FA8', font: { size: 10 } }, grid: { color: '#1A3A5C55' } },
+        y: { ticks: { color: '#5A8FA8', font: { size: 10 } }, grid: { color: '#1A3A5C55' } },
+      }
+    }
+  });
+}
+
+// ── Compare ───────────────────────────────────────────────────────────────────
+function renderCompare() {
+  // Bar chart
+  const sorted = [...FUNDS].sort((a, b) => b.metrics.ytdReturn - a.metrics.ytdReturn);
+  if (barChart) barChart.destroy();
+  const ctx2 = document.getElementById('barChart').getContext('2d');
+  barChart = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(f => f.nameEn.split('–')[0].trim()),
+      datasets: [
+        {
+          label: 'YTD Return %',
+          data: sorted.map(f => f.metrics.ytdReturn),
+          backgroundColor: '#1A7A8A99',
+          borderColor: '#1A7A8A',
+          borderWidth: 1,
+          borderRadius: 6,
+        },
+        {
+          label: 'Volatility %',
+          data: sorted.map(f => f.metrics.volatility),
+          backgroundColor: '#C0392B88',
+          borderColor: '#C0392B',
+          borderWidth: 1,
+          borderRadius: 6,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8ECAE6', font: { size: 12 } } },
+        tooltip: { backgroundColor: '#0F1C2E', borderColor: '#1A7A8A', borderWidth: 1, titleColor: '#8ECAE6', bodyColor: '#E8EDF2' }
+      },
+      scales: {
+        x: { ticks: { color: '#5A8FA8', font: { size: 10 } }, grid: { color: '#1A3A5C55' } },
+        y: { ticks: { color: '#5A8FA8', font: { size: 10 } }, grid: { color: '#1A3A5C55' } },
+      }
+    }
+  });
+
+  // Table
+  const tbody = document.getElementById('compareBody');
+  tbody.innerHTML = sorted.map(f => {
+    const m = f.metrics;
+    const up = m.ytdReturn >= 0;
+    return `<tr>
+      <td style="color:${f.color};font-weight:700">${f.nameEn.split('–')[0].trim()}</td>
+      <td><span class="badge" style="background:${TYPE_COLORS[f.type]}33;color:${TYPE_COLORS[f.type]};padding:2px 8px;border-radius:4px;font-size:11px">${f.type}</span></td>
+      <td style="font-weight:700">${f.currentNav} جنيه</td>
+      <td style="color:${up ? 'var(--green)' : 'var(--red)'};font-weight:700">${up ? '▲' : '▼'} ${Math.abs(m.ytdReturn)}%</td>
+      <td style="color:var(--orange)">${m.volatility}%</td>
+      <td style="color:${m.sharpe >= 0 ? 'var(--green)' : 'var(--red)'}">${m.sharpe}</td>
+      <td style="color:var(--red)">-${m.maxDrawdown}%</td>
+      <td style="color:var(--purple);font-weight:700">${m.totalReturn}%</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── AI Chat ───────────────────────────────────────────────────────────────────
+function setQ(q) {
+  document.getElementById('chatInput').value = q;
+  document.getElementById('chatInput').focus();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!msg) return;
+
+  if (!apiKey) {
+    alert('الرجاء إدخال Claude API Key أولاً');
+    return;
+  }
+
+  input.value = '';
+  const box = document.getElementById('chatbox');
+  document.getElementById('chatEmpty')?.remove();
+
+  // User bubble
+  chatHistory.push({ role: 'user', text: msg });
+  box.innerHTML += `<div class="msg user"><div class="bubble">${escHtml(msg)}</div></div>`;
+
+  // Thinking bubble
+  const thinkId = 'think_' + Date.now();
+  box.innerHTML += `<div class="msg assistant thinking" id="${thinkId}"><div class="bubble">⏳ جاري التحليل...</div></div>`;
+  box.scrollTop = box.scrollHeight;
+
+  document.getElementById('sendBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, history: chatHistory.slice(-8), apiKey })
+    });
+    const data = await res.json();
+
+    document.getElementById(thinkId)?.remove();
+
+    const reply = data.reply || ('⚠️ ' + formatError(data.error || 'Unknown error'));
+    chatHistory.push({ role: 'assistant', text: reply });
+    box.innerHTML += `<div class="msg assistant"><div class="bubble">${escHtml(reply)}</div></div>`;
+  } catch (e) {
+    document.getElementById(thinkId)?.remove();
+    box.innerHTML += `<div class="msg assistant"><div class="bubble" style="color:var(--red)">⚠️ خطأ في الاتصال</div></div>`;
+  }
+
+  document.getElementById('sendBtn').disabled = false;
+  box.scrollTop = box.scrollHeight;
+}
+
+function formatError(err) {
+  if (!err) return 'خطأ غير معروف';
+  if (err.includes('503') || err.includes('loading')) {
+    return '⏳ الموديل بيشتغل (cold start) — انتظر 20 ثانية وحاول تاني.';
+  }
+  if (err.includes('401') || err.includes('Token')) {
+    return '🔑 الـ Token غلط — روح huggingface.co/settings/tokens واعمل token جديد.';
+  }
+  if (err.includes('429')) {
+    return '⏳ تجاوزت الحد المؤقت — انتظر دقيقة وحاول تاني.';
+  }
+  return err.substring(0, 200);
+}
+
+
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
